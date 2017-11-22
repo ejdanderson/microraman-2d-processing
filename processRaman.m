@@ -42,10 +42,8 @@ end
 
 % Remove bad rows such as focusing on an imperfection and creating 100%
 % fluorescence
-Spectrum(207, :) = Spectrum(206, :);
-Spectrum(400, :) = Spectrum(399, :);
-
-Spectrum(400,1)
+%Spectrum(207, :) = Spectrum(206, :);
+%Spectrum(400, :) = Spectrum(399, :);
 
 rowsSpectrum = size(Spectrum, 1);
 colsSpectrum = size(Spectrum, 2);
