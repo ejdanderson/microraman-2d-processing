@@ -1,27 +1,31 @@
 addpath(genpath(strcat(fileparts(which(mfilename)), '/subtightplot')));
-data = '/Users/evan/Dropbox/Teeth/20171017/toothB-scan.txt';
+data = 'F:\Dropbox\Dropbox\Raman\20180305-ascii\halfmicronscan';
+%data = '/Users/evan/Dropbox/Raman/20180305-ascii/halfmicronscan';
 
 delimiterIn = '\t';
 headerlinesIn = 3;
 A = importdata(data, delimiterIn, headerlinesIn);
-num_steps_x = str2num(A.textdata{1});
-num_steps_y = str2num(A.textdata{2});
+num_steps_x = str2num(A.textdata{2});
+num_steps_y = str2num(A.textdata{1});
 
 matSize = num_steps_x * num_steps_y;
 
 showAllSpectraFig = false;
 
-% Peak to integrate over (in pixels) and the title
-peaks = {48 70 'PO'; ...
-    140 160 'PO'; ...
-    400 440 'PO4'; ...
-    460 490 'PO'; ...
-    500 520 'CO3'; ...
-    610 615 'Amide III'; ...
-    775 805 'CH2 / Amide II'; ...
-    883 900 '?'; ...
-    930 990 'Amide I'};
+Spectrum = zeros(matSize, 1340);
 
+% Peak to integrate over (in pixels) and the title
+peaks = {
+    %35 75 'PO'; ...
+    %140 160 'PO'; ...
+    400 440 'PO4'};
+    %460 485 'PO'; ...
+    %490 520 'CO3'; ...
+    %615 660 'Amide III'; ...
+    %770 810 'CH2 / Amide II'; ...
+    %930 990 'Amide I'};
+
+   
 grids = zeros(num_steps_x, num_steps_y, length(peaks));
 
 %{
@@ -35,7 +39,7 @@ cosmicThreshold = 300;
 for i = 0:num_steps_y-1
     for j=1:num_steps_x
         k = j+num_steps_x*i;
-        l = (i*((num_steps_x+1)*2-1)+j*2)-1;
+        l = k;%k*2-1;
         Spectrum(k,:)=A.data(l,:);
     end
 end
@@ -47,6 +51,7 @@ end
 
 rowsSpectrum = size(Spectrum, 1);
 colsSpectrum = size(Spectrum, 2);
+
 for j=1:colsSpectrum
     minVal = 999999;
     for i=1:rowsSpectrum
@@ -60,9 +65,11 @@ for j=1:colsSpectrum
         end
     end
     %Spectrum(i,:) = Spectrum(i,:) / max(Spectrum(i,:));
-    %Spectrum(i, :) -= (zeros(1, colsSpectrum) + minVal);
+    %Spectrum(i, :) = (zeros(1, colsSpectrum) + minVal);
 end
 
+spectra_out = zeros(num_steps_x, size(Spectrum, 2));
+testSpectrum = zeros(size(Spectrum,1), 41);
 for peak_num=1:size(peaks, 1)
     for x = 0:num_steps_x-1
         for y = 1:num_steps_y
@@ -73,7 +80,20 @@ for peak_num=1:size(peaks, 1)
             else
                 y_pos = y;
             end
-            grids(x+1, y, peak_num) = sum(Spectrum(index, peaks{peak_num, 1}:peaks{peak_num, 2}));
+            grids(x+1, y_pos, peak_num) = sum(Spectrum(index, peaks{peak_num, 1}:peaks{peak_num, 2}));
+            if peak_num == 3
+               testSpectrum(index, :) = Spectrum(index, peaks{peak_num, 1}:peaks{peak_num, 2});
+               testSpectrum(index, :) = testSpectrum(index, :) - (Spectrum(index, peaks{peak_num, 1})+Spectrum(index, peaks{peak_num, 1}))/4;
+            end
+            
+            %This attempts to normalize the spectra by removing the
+            %baseline - i.e. subtract the average of the starting and
+            %ending intensity
+            grids(x+1, y_pos, peak_num) = grids(x+1, y_pos, peak_num) - (Spectrum(index, peaks{peak_num, 1})+Spectrum(index, peaks{peak_num, 1}))/2 * (peaks{peak_num, 2} - peaks{peak_num, 1});
+            %if y_pos == 5
+            spectra_out(x+1,:) = spectra_out(x+1,:) + Spectrum(index,:);
+           % end
+                
             %%sum(Spectrum(index, peaks{peak_num, 1}:peaks{peak_num, 2}))
         end
     end
@@ -89,15 +109,21 @@ e.g. pixels p1, p2, p3 have values of 0, 10000, and 50 respectivly.
 
 figure
 subplot_size = ceil(sqrt(size(peaks,1)));
-
-for peak_num=1:size(peaks, 1)   
-    subtightplot(3, 3, peak_num, [0.01, 0.03, 0.03])
-    imagesc(grids(:, :, peak_num))
-    pbaspect([1 num_steps_x/num_steps_y 1])
+if size(peaks, 1) > 1
+    for peak_num=1:size(peaks, 1)   
+        subtightplot(3, 3, peak_num, [0.01, 0.03, 0.03])
+        imagesc(transpose(grids(:, :, peak_num)))
+        pbaspect([1 num_steps_y/num_steps_x 1])
+        colorbar
+        title(peaks(peak_num, 3))
+    end
+else
+    imagesc(transpose(grids(:, :, 1)))
+    pbaspect([1 num_steps_y/num_steps_x 1])
     colorbar
+    caxis([0 1.5e5]);
     title(peaks(peak_num, 3))
 end
-
 if showAllSpectraFig
     figure
     zz = transpose(Spectrum);
@@ -119,4 +145,17 @@ if showAllSpectraFig
     xlabel('pixel')
     ylabel('sample #')
     zlabel('Intensity (arb. units)')
+end
+
+dlmwrite('F:\Dropbox\Dropbox\Raman\20180305-ascii\tip-halfmicron-mat', spectra_out);
+
+x_vals = importdata('F:\Dropbox\Dropbox\Teeth\scans\xvals.txt');
+figure
+plot(1:1340, spectra_out)
+
+if false
+    for peak_num=1:size(peaks, 1)
+        figure
+        plot(grids(:, :, peak_num))
+    end
 end
